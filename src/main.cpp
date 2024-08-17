@@ -4,29 +4,52 @@
 #include <vector>
 #include <string>
 #include <cmath>
+#include <array>
 
+// Constants
 const double PI = 3.14159265358979323846;
-
-int WIDTH, HEIGHT;
 const int GROUND_OFFSET = 4;
-int GROUND;
 const char DINO = 'D';
 const char OBSTACLE = '#';
+const char STONE = 'O';
 const char STAR = '*';
 const char BUSH = '"';
 const int MAX_OBSTACLE_HEIGHT = 3;
 const double JUMP_HEIGHT = 5.0;
-const double JUMP_DURATION = 20.0;
+const double JUMP_DURATION = 15.0;  // Reduced from 20.0 to make the jump faster
+const int MIN_OBSTACLE_DISTANCE = 11;  // Reduced from 32 (about 2/3 reduction)
+const int MAX_OBSTACLE_DISTANCE = 21;  // Reduced from 64 (about 2/3 reduction)
+const int GAME_SPEED = 75;  // Increased from 50 (1/3 slower)
 
+// Cactus shapes
+const std::array<std::vector<std::string>, 3> CACTUS_SHAPES = {{
+    {"#", "#", "#"},
+    {"#", "##", "#"},
+    {" #", "##", " #"}
+}};
+
+// GameObject struct
 struct GameObject {
     int x, y;
-    char symbol;
+    std::vector<std::string> shape;
     int height;
+    int width;
+    bool isCactus;
+    int color;
 };
 
-std::vector<GameObject> obstacles;
-std::vector<GameObject> stars;
-std::vector<GameObject> bushes;
+// Function prototypes
+bool checkCollision(const GameObject& a, const GameObject& b);
+void setup();
+void createObstacle();
+void initializeStars();
+void createBush();
+void updateGame();
+void draw();
+
+// Global variables
+int WIDTH, HEIGHT, GROUND;
+std::vector<GameObject> obstacles, stars, bushes;
 GameObject dino;
 int score = 0;
 bool gameOver = false;
@@ -34,65 +57,104 @@ double jumpProgress = 0.0;
 bool isJumping = false;
 int nextObstacleDistance = 0;
 
+// Collision detection
+bool checkCollision(const GameObject& a, const GameObject& b) {
+    for (int ay = 0; ay < a.height; ay++) {
+        for (int ax = 0; ax < a.shape[ay].length(); ax++) {
+            if (a.shape[ay][ax] != ' ') {
+                for (int by = 0; by < b.height; by++) {
+                    for (int bx = 0; bx < b.shape[by].length(); bx++) {
+                        if (b.shape[by][bx] != ' ' && a.x + ax == b.x + bx && a.y + ay == b.y + by) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// Setup ncurses and game environment
 void setup() {
     initscr();
     cbreak();
     noecho();
     keypad(stdscr, TRUE);
     curs_set(0);
-    timeout(100);
+    timeout(GAME_SPEED);
     srand(time(0));
     
-    // Get screen dimensions
     getmaxyx(stdscr, HEIGHT, WIDTH);
     GROUND = HEIGHT - GROUND_OFFSET;
 
-    // Enable color
     start_color();
-    init_pair(1, COLOR_RED, COLOR_BLACK);
+    init_pair(1, COLOR_GREEN, COLOR_BLACK);
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(3, COLOR_RED, COLOR_BLACK);
+    init_pair(4, COLOR_YELLOW, COLOR_BLACK);
 }
 
+// Create a new obstacle
 void createObstacle() {
     if (nextObstacleDistance <= 0) {
-        int height = rand() % MAX_OBSTACLE_HEIGHT + 1;
-        obstacles.push_back({WIDTH - 1, GROUND - height + 1, OBSTACLE, height});
-        nextObstacleDistance = rand() % 17 + 16; // Random distance between 16 and 32
+        bool isCactus = (rand() % 2 == 0);
+        std::vector<std::string> shape;
+        int height, width;
+        
+        if (isCactus) {
+            shape = CACTUS_SHAPES[rand() % CACTUS_SHAPES.size()];
+            height = shape.size();
+            width = shape[0].length();
+        } else {
+            shape = {std::string(1, STONE)};
+            height = 1;
+            width = 1;
+        }
+        
+        obstacles.push_back({WIDTH - 1, GROUND - height + 1, shape, height, width, isCactus, 0});
+        nextObstacleDistance = rand() % (MAX_OBSTACLE_DISTANCE - MIN_OBSTACLE_DISTANCE + 1) + MIN_OBSTACLE_DISTANCE;
     } else {
         nextObstacleDistance--;
     }
 }
 
+// Initialize stars
 void initializeStars() {
-    const int NUM_STARS = WIDTH / 4; // Adjust number of stars based on screen width
+    const int NUM_STARS = WIDTH / 4;
     for (int i = 0; i < NUM_STARS; i++) {
-        stars.push_back({rand() % WIDTH, rand() % (GROUND - 5), STAR});
+        stars.push_back({rand() % WIDTH, rand() % (GROUND - 5), {std::string(1, STAR)}, 1, 1, false, 0});
     }
 }
 
+// Create a new bush
 void createBush() {
     if (rand() % 15 == 0) {
-        bushes.push_back({WIDTH - 1, GROUND + 1, BUSH});
+        int color = rand() % 3 + 2; // 2 for yellow (brown), 3 for red (orange), 4 for green
+        int yOffset = (rand() % 2) * 2 + 1; // Either 1 or 3 rows below the ground
+        bushes.push_back({WIDTH - 1, GROUND + yOffset, {std::string(1, BUSH)}, 1, 1, false, color});
     }
 }
 
+// Update game state
 void updateGame() {
-    // Move obstacles
+    // Move and remove off-screen obstacles
     for (auto& obj : obstacles) {
-        obj.x--;
+        obj.x -= 1;  // Changed from 2 to 1 to slow down obstacle movement
     }
     obstacles.erase(std::remove_if(obstacles.begin(), obstacles.end(),
-        [](const GameObject& obj) { return obj.x < 0; }), obstacles.end());
+        [](const GameObject& obj) { return obj.x + obj.width < 0; }), obstacles.end());
 
-    // Move bushes
+    // Move and remove off-screen bushes
     for (auto& bush : bushes) {
-        bush.x--;
+        bush.x -= 1;  // Changed from 2 to 1 to slow down bush movement
     }
     bushes.erase(std::remove_if(bushes.begin(), bushes.end(),
-        [](const GameObject& bush) { return bush.x < 0; }), bushes.end());
+        [](const GameObject& bush) { return bush.x + bush.width < 0; }), bushes.end());
 
     // Update jump
     if (isJumping) {
-        jumpProgress += 1.0;
+        jumpProgress += 2.0;  // Increased from 1.5 to 2.0 to make the jump faster
         if (jumpProgress >= JUMP_DURATION) {
             isJumping = false;
             jumpProgress = 0.0;
@@ -103,23 +165,24 @@ void updateGame() {
         }
     }
 
-    // Check collision
+    // Check for collisions
     for (const auto& obj : obstacles) {
-        if (obj.x == dino.x && dino.y >= GROUND - obj.height + 1) {
+        if (checkCollision(dino, obj)) {
             gameOver = true;
             return;
         }
     }
 
-    score++;
+    score += 1;  // Changed from 2 to 1 to slow down score increase
 }
 
+// Draw game state
 void draw() {
     clear();
 
     // Draw stars
     for (const auto& star : stars) {
-        mvaddch(star.y, star.x, star.symbol);
+        mvaddch(star.y, star.x, star.shape[0][0]);
     }
 
     // Draw ground
@@ -127,22 +190,24 @@ void draw() {
         mvaddch(GROUND, i, '-');
     }
 
-    // Draw bushes
-    for (const auto& bush : bushes) {
-        mvaddch(bush.y, bush.x, bush.symbol);
-    }
-
-    // Draw obstacles in red
-    attron(COLOR_PAIR(1));
+    // Draw obstacles
     for (const auto& obj : obstacles) {
+        attron(COLOR_PAIR(obj.isCactus ? 1 : 2));
         for (int i = 0; i < obj.height; i++) {
-            mvaddch(GROUND - i, obj.x, obj.symbol);
+            mvprintw(GROUND - obj.height + 1 + i, obj.x, obj.shape[i].c_str());
         }
+        attroff(COLOR_PAIR(obj.isCactus ? 1 : 2));
     }
-    attroff(COLOR_PAIR(1));
 
     // Draw dino
-    mvaddch(dino.y, dino.x, dino.symbol);
+    mvaddch(dino.y, dino.x, dino.shape[0][0]);
+
+    // Draw bushes
+    for (const auto& bush : bushes) {
+        attron(COLOR_PAIR(bush.color));
+        mvaddch(bush.y, bush.x, bush.shape[0][0]);
+        attroff(COLOR_PAIR(bush.color));
+    }
 
     // Draw score
     mvprintw(0, 0, "Score: %d", score);
@@ -152,7 +217,7 @@ void draw() {
 
 int main() {
     setup();
-    dino = {10, GROUND, DINO};
+    dino = {10, GROUND, {std::string(1, DINO)}, 1, 1, false, 0};
     
     initializeStars();
 
