@@ -14,9 +14,10 @@ const char OBSTACLE = '#';
 const char STONE = 'O';
 const char STAR = '*';
 const char BUSH = '"';
+const char BUSH_ALT = '*';  // Add this line for the alternative bush shape
 const int MAX_OBSTACLE_HEIGHT = 3;
 const double JUMP_HEIGHT = 5.0;
-const double JUMP_DURATION = 15.0;  // Reduced from 20.0 to make the jump faster
+const double JUMP_DURATION = 16.0;  // Reduced from 20.0 to make the jump faster
 const int MIN_OBSTACLE_DISTANCE = 11;  // Reduced from 32 (about 2/3 reduction)
 const int MAX_OBSTACLE_DISTANCE = 21;  // Reduced from 64 (about 2/3 reduction)
 const int GAME_SPEED = 75;  // Increased from 50 (1/3 slower)
@@ -90,9 +91,8 @@ void setup() {
 
     start_color();
     init_pair(1, COLOR_GREEN, COLOR_BLACK);
-    init_pair(2, COLOR_YELLOW, COLOR_BLACK);
-    init_pair(3, COLOR_RED, COLOR_BLACK);
-    init_pair(4, COLOR_YELLOW, COLOR_BLACK);
+    init_pair(2, COLOR_YELLOW, COLOR_BLACK);  // Yellow will represent brown
+    init_pair(3, COLOR_GREEN, COLOR_BLACK);   // Green for bushes
 }
 
 // Create a new obstacle
@@ -130,9 +130,10 @@ void initializeStars() {
 // Create a new bush
 void createBush() {
     if (rand() % 15 == 0) {
-        int color = rand() % 3 + 2; // 2 for yellow (brown), 3 for red (orange), 4 for green
+        char bushShape = (rand() % 2 == 0) ? BUSH : BUSH_ALT;
+        int color = (rand() % 2 == 0) ? 2 : 3;  // 2 for brown (yellow), 3 for green
         int yOffset = (rand() % 2) * 2 + 1; // Either 1 or 3 rows below the ground
-        bushes.push_back({WIDTH - 1, GROUND + yOffset, {std::string(1, BUSH)}, 1, 1, false, color});
+        bushes.push_back({WIDTH - 1, GROUND + yOffset, {std::string(1, bushShape)}, 1, 1, false, color});
     }
 }
 
