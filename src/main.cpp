@@ -216,6 +216,18 @@ void draw() {
     refresh();
 }
 
+// Add these constants at the top of your file
+const std::vector<std::string> DEFEAT_BANNER = {
+    "______      __           _     _ ",
+    "|  _  \\    / _|         | |   | |",
+    "| | | |___| |_ ___  __ _| |_  | |",
+    "| | | / _ \\  _/ _ \\/ _` | __| | |",
+    "| |/ /  __/ ||  __/ (_| | |_  |_|",
+    "|___/ \\___|_| \\___|\\__,_|\\__| (_)",
+    "                                 ",
+    "                                 "
+};
+
 int main() {
     setup();
     dino = {10, GROUND, {std::string(1, DINO)}, 1, 1, false, 0};
@@ -235,11 +247,29 @@ int main() {
         draw();
     }
 
+    // Game over sequence
     clear();
-    mvprintw(HEIGHT/2, WIDTH/2 - 5, "Game Over!");
-    mvprintw(HEIGHT/2 + 1, WIDTH/2 - 7, "Final Score: %d", score);
+
+    // Display defeat banner
+    int startY = (HEIGHT - DEFEAT_BANNER.size()) / 2 - 2;
+    int startX = (WIDTH - DEFEAT_BANNER[0].length()) / 2;
+    for (size_t i = 0; i < DEFEAT_BANNER.size(); ++i) {
+        mvprintw(startY + i, startX, DEFEAT_BANNER[i].c_str());
+    }
+
+    // Display final score
+    mvprintw(startY + DEFEAT_BANNER.size() + 1, WIDTH / 2 - 7, "Final Score: %d", score);
+
+    // Display quit prompt
+    mvprintw(startY + DEFEAT_BANNER.size() + 3, WIDTH / 2 - 10, "Press 'q' to quit");
+
     refresh();
-    getch();
+
+    // Wait for 'q' to quit
+    int ch;
+    while ((ch = getch()) != 'q' && ch != 'Q') {
+        // Wait for the correct key
+    }
 
     endwin();
     return 0;
