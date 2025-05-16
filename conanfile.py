@@ -1,6 +1,7 @@
 from conan import ConanFile
 from conan.tools.cmake import CMake, CMakeToolchain, cmake_layout
 
+
 class NcursesDinoRunnerConan(ConanFile):
     name = "ncurses_dinorunner"
     version = "0.1"
